@@ -42,7 +42,28 @@ def main():
         
     print(f"Generating plots in '{output_dir}'...")
     visualizer.generate_all_plots(output_dir)
-    print("Done!")
+    
+    # --- New Phase 2 Demo ---
+    from src.algorithms.definitions import register_all_algorithms
+    from src.algorithms.registry import AlgorithmRegistry
+    
+    # Ensure definitions are loaded
+    # (In a real app, this might happen in package init)
+    
+    print("\n--- Phase 2: Algorithm Library ---")
+    print("Fetching algorithms from registry...")
+    
+    classification_algos = AlgorithmRegistry.get_by_type("classification")
+    print(f"\nFound {len(classification_algos)} Classification Algorithms:")
+    for algo in classification_algos:
+        print(f" - {algo.name}: {algo.description[:50]}...")
+        
+    print("\nExample Detail (Random Forest):")
+    rf = AlgorithmRegistry.get_by_name("Random Forest")
+    if rf:
+        print(json.dumps(rf.to_dict(), indent=2))
+
+    print("\nDone!")
 
 if __name__ == "__main__":
     main()
