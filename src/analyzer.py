@@ -31,8 +31,20 @@ class DatasetAnalyzer:
             "basic_stats": self._get_basic_stats(),
             "feature_types": self._get_feature_types(),
             "missing_stats": self._get_missing_stats(),
-            "imbalance_stats": self._get_imbalance_stats() if self.target_column else None
+            "imbalance_stats": self._get_imbalance_stats() if self.target_column else None,
+            "skewness": self._get_skewness(),
+            "correlations": self._get_correlations(),
+            "outliers": self._get_outlier_stats()
         }
+        
+        # Enrich target analysis with type detection if not just basic imbalance
+        if self.target_column:
+             target_type_info = self._detect_target_type()
+             if self.analysis_result["imbalance_stats"]:
+                 self.analysis_result["imbalance_stats"].update(target_type_info)
+             else:
+                 self.analysis_result["imbalance_stats"] = target_type_info
+
         return self.analysis_result
 
     def _get_basic_stats(self) -> Dict[str, Any]:
@@ -66,6 +78,62 @@ class DatasetAnalyzer:
             "columns_with_missing": columns_with_missing,
             "has_missing_values": missing_cells > 0
         }
+    
+    def _get_skewness(self) -> Dict[str, float]:
+        """Calculate skewness for numerical columns."""
+        numeric_df = self.df.select_dtypes(include=[np.number])
+        if numeric_df.empty:
+            return {}
+        return numeric_df.skew().to_dict()
+
+    def _get_correlations(self) -> Dict[str, Dict[str, float]]:
+        """Calculate Pearson correlation matrix for numerical columns."""
+        numeric_df = self.df.select_dtypes(include=[np.number])
+        if numeric_df.empty or numeric_df.shape[1] < 2:
+            return {}
+        return numeric_df.corr().to_dict()
+
+    def _get_outlier_stats(self) -> Dict[str, int]:
+         """Detect outliers using IQR method for numerical columns."""
+         numeric_df = self.df.select_dtypes(include=[np.number])
+         outliers = {}
+         for col in numeric_df.columns:
+             Q1 = numeric_df[col].quantile(0.25)
+             Q3 = numeric_df[col].quantile(0.75)
+             IQR = Q3 - Q1
+             lower_bound = Q1 - 1.5 * IQR
+             upper_bound = Q3 + 1.5 * IQR
+             count = ((numeric_df[col] < lower_bound) | (numeric_df[col] > upper_bound)).sum()
+             if count > 0:
+                 outliers[col] = int(count)
+         return outliers
+
+    def _detect_target_type(self) -> Dict[str, Any]:
+        """
+        Sophisticated logic to detect if target is regression, classification (binary/multi), or other.
+        """
+        if not self.target_column or self.target_column not in self.df.columns:
+            return {}
+            
+        target = self.df[self.target_column]
+        distinct_count = target.nunique()
+        is_numeric = pd.api.types.is_numeric_dtype(target.dtype)
+        
+        # Heuristics
+        if not is_numeric:
+            return {"problem_type": "classification", "sub_type": "binary" if distinct_count == 2 else "multiclass"}
+        
+        # It is numeric. Is it regression or classification?
+        # If float with decimals -> Regression
+        # If integer but few unique values -> Classification (likely ordinal or class labels)
+        
+        # Check if values are essentially integers
+        is_integer_like = np.array_equal(target.dropna(), target.dropna().astype(int))
+        
+        if is_integer_like and distinct_count < 20: # Threshold of 20 unique values for classification hint
+             return {"problem_type": "classification", "sub_type": "multiclass", "note": "Numeric target with low cardinality"}
+        
+        return {"problem_type": "regression"}
 
     def _get_imbalance_stats(self) -> Optional[Dict[str, Any]]:
         """Check for class imbalance if target is categorical."""
@@ -73,11 +141,19 @@ class DatasetAnalyzer:
             return None
             
         target = self.df[self.target_column]
-        if pd.api.types.is_numeric_dtype(target.dtype):
-             # For regression, maybe check for skewness later?
-             return {"type": "regression (likely)", "skewness": target.skew()}
+        # We will let _detect_target_type handle the high level type, 
+        # but if it IS classification, we want distribution.
         
-        # Assume classification for non-numeric or low cardinality numeric
+        # Re-using the logic slightly here or trusting the basic check needed for stats
+        
+        is_numeric = pd.api.types.is_numeric_dtype(target.dtype)
+        distinct_count = target.nunique()
+
+        # If it looks like regression, return skewness
+        if is_numeric and distinct_count > 20:
+             return {"type": "regression", "skewness": target.skew()}
+        
+        # Assume classification
         value_counts = target.value_counts(normalize=True)
         return {
             "type": "classification",
