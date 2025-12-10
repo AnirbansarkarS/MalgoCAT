@@ -62,6 +62,24 @@ def main():
     rf = AlgorithmRegistry.get_by_name("Random Forest")
     if rf:
         print(json.dumps(rf.to_dict(), indent=2))
+        
+    # --- New Phase 3 Demo ---
+    from src.engine import HeuristicRanker
+    
+    print("\n--- Phase 3: Heuristic Ranking ---")
+    print("Ranking algorithms for this dataset...")
+    
+    ranker = HeuristicRanker()
+    # We use the 'results' dictionary from the earlier analyzer.analyze() call
+    recommendations = ranker.rank(results, top_k=3)
+    
+    print("\nTop 3 Recommendations:")
+    for i, rec in enumerate(recommendations, 1):
+        algo = rec["algorithm"]
+        score = rec["score"]
+        reasons = rec["reasons"]
+        print(f"{i}. {algo.name} (Score: {score:.1f})")
+        print(f"   Why: {', '.join(reasons)}")
 
     print("\nDone!")
 
