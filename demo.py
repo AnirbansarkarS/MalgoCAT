@@ -7,7 +7,7 @@ import numpy as np
 
 def main():
     print("Creating dummy dataset...")
-    # Create a dummy dataset with more complexity for testing
+    # Create a dummy dataset for testing
     data = {
         'age': [25, 30, 35, 40, None, 22, 55, 60, 24, 33],
         'salary': [50000, 60000, 75000, None, 80000, 45000, 120000, 130000, 52000, 68000],
@@ -17,7 +17,6 @@ def main():
         'is_manager': [False, False, True, True, False, False, True, True, False, False],
         'performance_score': [3.5, 4.2, 3.8, 4.5, 3.0, 4.0, 4.8, 4.9, 3.2, 4.1]
     }
-    # Add some correlation: older people tend to have higher salary
     
     df = pd.DataFrame(data)
     
