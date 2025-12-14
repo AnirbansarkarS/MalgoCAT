@@ -89,6 +89,21 @@ def main():
         print(f"   Explanation: {explanation}\n")
 
     print("\nDone!")
+    
+    # --- New Phase 5 Demo ---
+    from src.automl.runner import AutoMLRunner
+    
+    print("\n--- Phase 5: AutoML Benchmark ---")
+    print("Running actual training benchmark on recommeded algorithms...")
+    
+    runner = AutoMLRunner()
+    # Pass the dataset and the recommendations we just generated
+    benchmark_results = runner.run_benchmark(df, target_col='department', recommendations=recommendations)
+    
+    print("\nBenchmark Results:")
+    print(benchmark_results.to_string(index=False))
+    
+    print("\nDone!")
 
 if __name__ == "__main__":
     main()
