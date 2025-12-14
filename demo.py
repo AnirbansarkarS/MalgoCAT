@@ -62,13 +62,16 @@ def main():
     if rf:
         print(json.dumps(rf.to_dict(), indent=2))
         
-    # --- New Phase 3 Demo ---
+    # --- New Phase 3 & 4 Demo ---
     from src.engine import HeuristicRanker
+    from src.explanations.llm_engine import ExplanationEngine
     
-    print("\n--- Phase 3: Heuristic Ranking ---")
+    print("\n--- Phase 3 & 4: Ranking & Explanation ---")
     print("Ranking algorithms for this dataset...")
     
     ranker = HeuristicRanker()
+    explainer = ExplanationEngine()
+    
     # We use the 'results' dictionary from the earlier analyzer.analyze() call
     recommendations = ranker.rank(results, top_k=3)
     
@@ -77,8 +80,13 @@ def main():
         algo = rec["algorithm"]
         score = rec["score"]
         reasons = rec["reasons"]
+        
+        # Generate Explanation
+        explanation = explainer.generate_explanation(algo.name, results, reasons)
+        
         print(f"{i}. {algo.name} (Score: {score:.1f})")
-        print(f"   Why: {', '.join(reasons)}")
+        print(f"   Tech Reasons: {', '.join(reasons)}")
+        print(f"   Explanation: {explanation}\n")
 
     print("\nDone!")
 
