@@ -45,7 +45,20 @@ class DatasetAnalyzer:
              else:
                  self.analysis_result["imbalance_stats"] = target_type_info
 
+        # Add feature columns explicitly for frontend Mapping
+        self.analysis_result["feature_columns"] = self._get_feature_columns()
+
         return self.analysis_result
+
+    def _get_feature_columns(self) -> Dict[str, list]:
+        """Get list of column names for each type."""
+        dtypes = self.df.dtypes
+        return {
+            "numerical": [col for col, t in dtypes.items() if pd.api.types.is_numeric_dtype(t)],
+            "categorical": [col for col, t in dtypes.items() if pd.api.types.is_object_dtype(t) or pd.api.types.is_categorical_dtype(t)],
+            "datetime": [col for col, t in dtypes.items() if pd.api.types.is_datetime64_any_dtype(t)],
+            "bool": [col for col, t in dtypes.items() if pd.api.types.is_bool_dtype(t)]
+        }
 
     def _get_basic_stats(self) -> Dict[str, Any]:
         """Extract basic dimensions and memory usage."""

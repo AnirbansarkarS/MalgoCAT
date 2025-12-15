@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   Trophy, ThumbsUp, ThumbsDown, Copy, Check, X,
   ChevronDown, Sparkles, AlertTriangle
 } from "lucide-react";
@@ -146,7 +146,7 @@ function AlgorithmCard({ recommendation, index }: { recommendation: AlgorithmRec
       )}
     >
       {/* Header */}
-      <div 
+      <div
         className="p-4 cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
@@ -160,7 +160,7 @@ function AlgorithmCard({ recommendation, index }: { recommendation: AlgorithmRec
             )}
             <h3 className="text-lg font-bold">{recommendation.name}</h3>
           </div>
-          <ChevronDown 
+          <ChevronDown
             className={cn(
               "w-5 h-5 text-muted-foreground transition-transform",
               expanded && "rotate-180"
@@ -184,8 +184,8 @@ function AlgorithmCard({ recommendation, index }: { recommendation: AlgorithmRec
                 recommendation.confidence >= 90
                   ? "bg-success"
                   : recommendation.confidence >= 75
-                  ? "bg-primary"
-                  : "bg-warning"
+                    ? "bg-primary"
+                    : "bg-warning"
               )}
             />
           </div>
@@ -268,18 +268,58 @@ function AlgorithmCard({ recommendation, index }: { recommendation: AlgorithmRec
 }
 
 export function AlgorithmRecommendations() {
-  const { recommendations, setRecommendations, setCurrentStep, isAnalyzing, setIsAnalyzing } = useDatasetStore();
+  const {
+    recommendations, setRecommendations, setCurrentStep, isAnalyzing, setIsAnalyzing,
+    analysisResults, dataset, setTips, tips
+  } = useDatasetStore();
 
   useEffect(() => {
-    if (recommendations.length === 0) {
-      setIsAnalyzing(true);
-      const timer = setTimeout(() => {
-        setRecommendations(mockRecommendations);
-        setIsAnalyzing(false);
-      }, 1500);
-      return () => clearTimeout(timer);
+    // If we have analysis results but no recommendations, fetch them
+    if (analysisResults && recommendations.length === 0 && !isAnalyzing) {
+      const fetchRecommendations = async () => {
+        try {
+          setIsAnalyzing(true);
+          const response = await fetch("http://localhost:8000/recommend", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              analysis: analysisResults,
+              filename: dataset?.filename || "unknown.csv"
+            }),
+          });
+
+          if (!response.ok) throw new Error("Failed to get recommendations");
+
+          const data = await response.json();
+
+          // Map backend response to Frontend model
+          const mappedRecs: AlgorithmRecommendation[] = data.recommendations.map((rec: any, index: number) => ({
+            name: rec.algorithm,
+            confidence: Math.round(rec.score), // Score is 0-100
+            pros: rec.reasons || [], // Backend reasons
+            cons: [], // Backend doesn't define cons dynamically yet, use static or empty
+            performanceRange: { min: rec.score / 100 * 0.9, max: rec.score / 100 * 1.0 }, // Mock range based on score
+            explanation: rec.explanation,
+            whenItFails: "Consult documentation for specific edge cases.",
+            pythonCode: `# Implementation for ${rec.algorithm}\nfrom sklearn import ...\n# Todo: Generate specific code`,
+            isBestFit: index === 0,
+            timeEstimate: data.time_estimates[rec.algorithm] || "Unknown"
+          }));
+
+          setRecommendations(mappedRecs);
+          setTips(data.tips || []);
+
+        } catch (error) {
+          console.error(error);
+          // Fallback to mock if failed? Or show error
+        } finally {
+          setIsAnalyzing(false);
+        }
+      };
+
+      fetchRecommendations();
     }
-  }, [recommendations, setRecommendations, setIsAnalyzing]);
+  }, [analysisResults, recommendations, dataset, isAnalyzing, setRecommendations, setIsAnalyzing, setTips]);
 
   return (
     <motion.div
@@ -293,6 +333,21 @@ export function AlgorithmRecommendations() {
         <p className="text-muted-foreground">
           Ranked by fit for your dataset and goals
         </p>
+
+        {/* Competition Tips */}
+        {useDatasetStore.getState().tips.length > 0 && (
+          <div className="mt-4 p-4 bg-muted/30 rounded-lg max-w-2xl mx-auto text-left">
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-warning" />
+              Competition Insider Tips
+            </h3>
+            <ul className="space-y-1">
+              {useDatasetStore.getState().tips.map((tip, idx) => (
+                <li key={idx} className="text-sm text-muted-foreground">• {tip}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {isAnalyzing ? (
@@ -319,11 +374,36 @@ export function AlgorithmRecommendations() {
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="flex justify-between mt-8">
+      {/* Navigation & Actions */}
+      <div className="flex justify-between mt-8 items-center">
         <Button variant="outline" onClick={() => setCurrentStep(2)}>
           Back to Fingerprint
         </Button>
+
+        <Button
+          onClick={async () => {
+            setIsAnalyzing(true);
+            try {
+              const response = await fetch("http://localhost:8000/benchmark", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  filename: dataset?.filename || "unknown.csv",
+                  target_col: "target", // TODO: user should select this in Context step. For now hardcode or guess.
+                  recommmendations: recommendations.map(r => ({ algorithm: r.name }))
+                }),
+              });
+              const data = await response.json();
+              alert("Benchmark Complete! Check console for now (UI pending)");
+              console.log(data);
+            } catch (e) { console.error(e); alert("Benchmark Failed"); }
+            setIsAnalyzing(false);
+          }}
+          className="bg-accent text-accent-foreground hover:bg-accent/90"
+        >
+          Run Benchmark
+        </Button>
+
         <Button variant="outline" onClick={() => {
           const { reset } = useDatasetStore.getState();
           reset();

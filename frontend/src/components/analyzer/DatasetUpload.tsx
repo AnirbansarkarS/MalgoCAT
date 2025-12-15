@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function DatasetUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { dataset, setDataset, setCurrentStep } = useDatasetStore();
+  const { dataset, setDataset, setCurrentStep, setFingerprint, setAnalysisResults, setIsAnalyzing } = useDatasetStore();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -19,9 +19,9 @@ export function DatasetUpload() {
     setIsDragging(false);
   }, []);
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     setError(null);
-    
+
     if (!file.name.endsWith(".csv")) {
       setError("Please upload a CSV file");
       return;
@@ -32,28 +32,69 @@ export function DatasetUpload() {
       return;
     }
 
-    // Mock dataset analysis
-    const mockAnalysis: DatasetInfo = {
-      filename: file.name,
-      size: file.size,
-      rows: Math.floor(Math.random() * 10000) + 500,
-      columns: Math.floor(Math.random() * 30) + 5,
-      taskType: ["classification", "regression", "clustering", "time-series"][
-        Math.floor(Math.random() * 4)
-      ] as DatasetInfo["taskType"],
-      features: [
-        "age", "income", "score", "category", "timestamp", 
-        "value", "label", "feature_a", "feature_b"
-      ].slice(0, Math.floor(Math.random() * 6) + 4),
-    };
+    try {
+      setIsAnalyzing(true);
+      const formData = new FormData();
+      formData.append("file", file);
 
-    setDataset(mockAnalysis);
-  }, [setDataset]);
+      // Call Backend
+      const response = await fetch("http://localhost:8000/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Unknown backend error" }));
+        throw new Error(errorData.detail || "Failed to analyze file");
+      }
+
+      const data = await response.json();
+      const analysis = data.analysis;
+
+      // Update Store with Dataset Info
+      setDataset({
+        filename: data.filename,
+        size: file.size,
+        rows: analysis.basic_stats.n_rows,
+        columns: analysis.basic_stats.n_columns,
+        taskType: analysis.imbalance_stats?.problem_type || "Unknown",
+        features: [...(analysis.feature_columns?.numerical || []), ...(analysis.feature_columns?.categorical || [])]
+      });
+
+      // Update Store with Fingerprint (Mapping)
+      setFingerprint({
+        classImbalance: {
+          ratio: 0.5, // Todo: map from analysis.imbalance_stats
+          severity: analysis.imbalance_stats?.is_imbalanced ? "high" : "low"
+        },
+        missingValueRatio: analysis.missing_stats.missing_ratio,
+        featureTypes: analysis.feature_types, // Direct map if keys match
+        correlationStrength: "moderate", // Mock or calc from heatmap
+        sparseness: 0
+      });
+
+      setAnalysisResults(analysis);
+
+      setIsAnalyzing(false);
+
+    } catch (err: any) {
+      console.error(err);
+      if (err.message && err.message !== "Failed to analyze file") {
+        setError(err.message);
+      } else {
+        // Try to get more info if possible (if we could read response body in catch, but fetch throws on network error)
+        // Adjust logic: if we threw "Failed to analyze file" we might not have body.
+        // But let's assume valid error messages for now.
+        setError("Error uploading file. Make sure backend is running.");
+      }
+      setIsAnalyzing(false);
+    }
+  }, [setDataset, setFingerprint, setAnalysisResults, setIsAnalyzing]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
   }, [processFile]);
@@ -119,7 +160,7 @@ export function DatasetUpload() {
               <CheckCircle2 className="w-8 h-8 text-primary" />
             </div>
             <p className="font-semibold mb-4">{dataset.filename}</p>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-xl mx-auto">
               <div className="glass-card p-3">
                 <p className="text-xs text-muted-foreground">Size</p>
@@ -155,6 +196,14 @@ export function DatasetUpload() {
               <span>CSV files up to 50MB</span>
             </div>
           </>
+        )}
+
+        {/* Loading Overlay */}
+        {useDatasetStore(state => state.isAnalyzing) && (
+          <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center rounded-xl z-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <p>Analyzing Dataset...</p>
+          </div>
         )}
       </div>
 
