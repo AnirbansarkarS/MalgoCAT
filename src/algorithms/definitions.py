@@ -69,6 +69,38 @@ def register_all_algorithms():
         min_samples=2000
     ))
 
+    # --- Support Vector Machines ---
+    AlgorithmRegistry.register(Algorithm(
+        name="Support Vector Machine (SVM)",
+        type="classification",
+        description="Finds the hyperplane that best separates classes with the maximum margin.",
+        pros=["Effective in high dimensional spaces", "Versatile kernels"],
+        cons=["Not suitable for large datasets", "Sensitive to noise", "Requires feature scaling"],
+        complexity_score=6,
+        handle_sparse=False # sklearn requires dense for some kernels, typically needs scaling
+    ))
+
+    # --- Naive Bayes ---
+    AlgorithmRegistry.register(Algorithm(
+        name="Gaussian Naive Bayes",
+        type="classification",
+        description="Probabilistic classifier based on Bayes' theorem with the assumption of independence between features.",
+        pros=["Extremely fast", "Simple", "Good for text/high-dim"],
+        cons=["Assumes feature independence (rarely true)", "Can be outperformed by complex models"],
+        complexity_score=1,
+        min_samples=10
+    ))
+    
+    # --- Boosting ---
+    AlgorithmRegistry.register(Algorithm(
+        name="AdaBoost",
+        type="classification",
+        description="An iterative ensemble method that adjusts weights of incorrectly classified instances so that subsequent classifiers focus on difficult cases.",
+        pros=["Less prone to overfitting than some", "Easy to implement"],
+        cons=["Sensitive to noisy data and outliers"],
+        complexity_score=4
+    ))
+    
     # --- Others ---
     AlgorithmRegistry.register(Algorithm(
         name="K-Nearest Neighbors",
