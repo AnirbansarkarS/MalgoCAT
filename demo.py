@@ -103,6 +103,29 @@ def main():
     print("\nBenchmark Results:")
     print(benchmark_results.to_string(index=False))
     
+    # --- New Phase 6 Demo ---
+    from src.competition.advisor import CompetitionAdvisor
+    
+    print("\n--- Phase 6: Competition Advisor ---")
+    advisor = CompetitionAdvisor()
+    
+    # Tips
+    print("Strategic Tips:")
+    tips = advisor.get_kaggle_tips(results)
+    for tip in tips:
+        print(tip)
+        
+    print(f"\nRecommended Baseline: {advisor.get_baseline_suggestion('classification')}")
+    
+    print("\nTime Estimates for Top Recommendations:")
+    n_rows = results["basic_stats"]["n_rows"]
+    n_cols = results["basic_stats"]["n_columns"]
+    
+    for rec in recommendations:
+        algo = rec["algorithm"]
+        time_est = advisor.estimate_time_budget(n_rows, n_cols, algo.complexity_score)
+        print(f" - {algo.name}: ~{time_est}")
+    
     print("\nDone!")
 
 if __name__ == "__main__":
