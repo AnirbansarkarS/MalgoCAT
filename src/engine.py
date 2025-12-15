@@ -55,10 +55,10 @@ class HeuristicRanker:
         reasons = []
         
         # Unpack stats
-        basic_stats = stats.get("basic_stats", {})
-        missing_stats = stats.get("missing_stats", {})
-        feature_types = stats.get("feature_types", {})
-        imbalance_stats = stats.get("imbalance_stats", {})
+        basic_stats = stats.get("basic_stats") or {}
+        missing_stats = stats.get("missing_stats") or {}
+        feature_types = stats.get("feature_types") or {}
+        imbalance_stats = stats.get("imbalance_stats") or {}
         
         n_rows = basic_stats.get("n_rows", 0)
         has_missing = missing_stats.get("has_missing_values", False)

@@ -35,9 +35,9 @@ class CompetitionAdvisor:
         """
         tips = []
         
-        missing = analysis.get("missing_stats", {})
-        imbalance = analysis.get("imbalance_stats", {})
-        feature_types = analysis.get("feature_types", {})
+        missing = analysis.get("missing_stats") or {}
+        imbalance = analysis.get("imbalance_stats") or {}
+        feature_types = analysis.get("feature_types") or {}
         
         if missing.get("has_missing_values", False):
             tips.append("💡 Tip: XGBoost and LightGBM handle missing values natively. Using them saves you from complex imputation strategies.")
