@@ -20,8 +20,8 @@ class ExplanationEngine:
             A string containing the explanation.
         """
         # Extract context
-        imbalance = context.get("imbalance_stats", {})
-        missing = context.get("missing_stats", {})
+        imbalance = context.get("imbalance_stats") or {}
+        missing = context.get("missing_stats") or {}
         n_rows = context.get("basic_stats", {}).get("n_rows", 0)
         
         # Build the explanation construction

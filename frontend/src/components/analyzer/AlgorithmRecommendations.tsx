@@ -138,11 +138,22 @@ function AlgorithmCard({ recommendation, index }: { recommendation: AlgorithmRec
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        scale: recommendation.isBestFit ? [1, 1.02, 1] : 1,
+      }}
+      transition={{
+        delay: index * 0.1,
+        scale: {
+          duration: 2,
+          repeat: recommendation.isBestFit ? Infinity : 0,
+          repeatType: "reverse"
+        }
+      }}
       className={cn(
         "glass-card overflow-hidden transition-all",
-        recommendation.isBestFit && "glow-border animate-glow"
+        recommendation.isBestFit && "glow-border border-primary/50 shadow-lg shadow-primary/20"
       )}
     >
       {/* Header */}
@@ -293,7 +304,7 @@ export function AlgorithmRecommendations() {
           const data = await response.json();
 
           // Map backend response to Frontend model
-          const mappedRecs: AlgorithmRecommendation[] = data.recommendations.map((rec: any, index: number) => ({
+          const mappedRecs: AlgorithmRecommendation[] = (data.recommendations || []).map((rec: any, index: number) => ({
             name: rec.algorithm,
             confidence: Math.round(rec.score), // Score is 0-100
             pros: rec.reasons || [], // Backend reasons
@@ -303,7 +314,7 @@ export function AlgorithmRecommendations() {
             whenItFails: "Consult documentation for specific edge cases.",
             pythonCode: `# Implementation for ${rec.algorithm}\nfrom sklearn import ...\n# Todo: Generate specific code`,
             isBestFit: index === 0,
-            timeEstimate: data.time_estimates[rec.algorithm] || "Unknown"
+            timeEstimate: (data.time_estimates && data.time_estimates[rec.algorithm]) || "Unknown"
           }));
 
           setRecommendations(mappedRecs);
@@ -335,14 +346,14 @@ export function AlgorithmRecommendations() {
         </p>
 
         {/* Competition Tips */}
-        {useDatasetStore.getState().tips.length > 0 && (
+        {tips && tips.length > 0 && (
           <div className="mt-4 p-4 bg-muted/30 rounded-lg max-w-2xl mx-auto text-left">
             <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-warning" />
               Competition Insider Tips
             </h3>
             <ul className="space-y-1">
-              {useDatasetStore.getState().tips.map((tip, idx) => (
+              {tips.map((tip, idx) => (
                 <li key={idx} className="text-sm text-muted-foreground">• {tip}</li>
               ))}
             </ul>

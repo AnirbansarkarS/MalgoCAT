@@ -10,6 +10,7 @@ from src.explanations.llm_engine import ExplanationEngine
 from src.competition.advisor import CompetitionAdvisor
 from src.automl.runner import AutoMLRunner
 from src.api.schemas import AnalysisResponse, RecommendationRequest, RecommendationResponse, BenchmarkRequest, BenchmarkResponse
+import src.algorithms.definitions # Register algorithms
 
 app = FastAPI()
 
@@ -101,8 +102,8 @@ async def get_recommendations(request: RecommendationRequest):
         recommendations = []
         time_estimates = {}
         
-        n_rows = analysis["basic_stats"]["n_rows"]
-        n_cols = analysis["basic_stats"]["n_columns"]
+        n_rows = analysis.get("basic_stats", {}).get("n_rows", 0)
+        n_cols = analysis.get("basic_stats", {}).get("n_columns", 0)
 
         for rec in rank_results:
             algo = rec["algorithm"]
