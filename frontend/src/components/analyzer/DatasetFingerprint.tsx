@@ -147,14 +147,14 @@ export function DatasetFingerprintPanel() {
           </div>
 
           {/* Plots Section */}
-          {plots && plots.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-8"
-            >
-              <h3 className="text-xl font-bold mb-4 text-center">Data Visualizations</h3>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8"
+          >
+            <h3 className="text-xl font-bold mb-4 text-center">Data Visualizations</h3>
+            {plots && plots.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {plots.map((plotUrl, idx) => (
                   <div key={idx} className="glass-card p-4">
@@ -166,8 +166,13 @@ export function DatasetFingerprintPanel() {
                   </div>
                 ))}
               </div>
-            </motion.div>
-          )}
+            ) : (
+              <div className="text-center text-muted-foreground p-8 glass-card">
+                <p>No visualization plots available.</p>
+                <p className="text-xs mt-2">Check if backend is running and file was analyzed correctly.</p>
+              </div>
+            )}
+          </motion.div>
         </>
       ) : null}
 
