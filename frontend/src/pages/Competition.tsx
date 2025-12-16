@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { DatasetUpload } from "@/components/analyzer/DatasetUpload";
 import { useDatasetStore } from "@/store/datasetStore";
 
 interface CompetitionPlan {
@@ -66,6 +67,12 @@ const Competition = () => {
 
   const { analysisResults, dataset } = useDatasetStore();
 
+  /* 
+   * NEW STATE FOR BENCHMARK
+   */
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [benchmarkResults, setBenchmarkResults] = useState<any[] | null>(null);
+
   const handleGeneratePlan = async () => {
     if (!analysisResults) {
       alert("Please upload and analyze a dataset first!");
@@ -92,6 +99,66 @@ const Competition = () => {
       setIsLoading(false);
     }
   };
+
+  const handleRunBenchmark = async () => {
+    if (!dataset || !plan) return;
+    setIsBenchmarking(true);
+    try {
+      // Construct recommendations list from plan
+      // We know plan has baseline.model and advanced.model (names)
+      const recs = [
+        { algorithm: plan.baseline.model },
+        { algorithm: plan.advanced.model }
+      ];
+
+      const response = await fetch("http://localhost:8000/benchmark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: dataset.filename,
+          target_col: analysisResults.target_analysis?.name || analysisResults.columns[analysisResults.columns.length - 1], // fallback to checking analysis or last col
+          recommmendations: recs
+        })
+      });
+
+      if (!response.ok) throw new Error("Benchmark Failed");
+      const data = await response.json();
+      setBenchmarkResults(data.results);
+    } catch (e) {
+      console.error(e);
+      alert("Benchmark failed.");
+    } finally {
+      setIsBenchmarking(false);
+    }
+  };
+
+  // If no dataset, show upload
+  if (!dataset && !analysisResults) {
+    return (
+      <Layout>
+        <div className="min-h-[calc(100vh-4rem)] py-12">
+          <div className="container mx-auto px-4 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-sm mb-4">
+                <Trophy className="w-4 h-4" />
+                Competition Mode
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Upload Competition Dataset</h1>
+              <p className="text-muted-foreground">Upload your train.csv to generate a winning strategy.</p>
+            </motion.div>
+
+            <div className="max-w-xl mx-auto">
+              <DatasetUpload />
+            </div>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
 
   return (
     <Layout>
@@ -245,6 +312,51 @@ const Competition = () => {
                   <span className="text-xs text-muted-foreground ml-4">({plan.advanced.time})</span>
                 </div>
                 <CodeBlock code={plan.advanced.code} />
+              </div>
+
+              {/* Benchmarking Section */}
+              <div className="glass-card p-6 border-primary/20 bg-primary/5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-lg">Real-time Benchmark</h3>
+                    <p className="text-sm text-muted-foreground">Train and evaluate these models on your data right now.</p>
+                  </div>
+                  <Button onClick={handleRunBenchmark} disabled={isBenchmarking}>
+                    {isBenchmarking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Code2 className="w-4 h-4 mr-2" />}
+                    {isBenchmarking ? "Training..." : "Run Benchmark"}
+                  </Button>
+                </div>
+
+                {benchmarkResults && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="overflow-hidden rounded-lg border border-border bg-background"
+                  >
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="py-2 px-4 text-left font-medium">Algorithm</th>
+                          <th className="py-2 px-4 text-left font-medium">Metric</th>
+                          <th className="py-2 px-4 text-left font-medium">Value</th>
+                          <th className="py-2 px-4 text-left font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {benchmarkResults.map((res: any, i: number) => (
+                          <tr key={i} className="border-t border-border/50">
+                            <td className="py-2 px-4 font-medium">{res.Algorithm}</td>
+                            <td className="py-2 px-4">{res.Metric}</td>
+                            <td className="py-2 px-4 font-bold">{typeof res.Value === 'number' ? res.Value.toFixed(4) : res.Value}</td>
+                            <td className={cn("py-2 px-4", res.Status === "Success" ? "text-green-500" : "text-red-500")}>
+                              {res.Status}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </motion.div>
+                )}
               </div>
 
               {/* Feature Engineering */}

@@ -70,7 +70,11 @@ class AutoMLRunner:
                 
             try:
                 # Instantiate
-                model = model_class()
+                if isinstance(model_class, type):
+                    model = model_class()
+                else:
+                    # It's a factory function (or instance if we messed up, but let's assume factory)
+                    model = model_class()
                 
                 # Train
                 model.fit(X_train, y_train)
