@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, ThumbsUp, ThumbsDown, Copy, Check, X,
-  ChevronDown, Sparkles, AlertTriangle
+  ChevronDown, Sparkles, AlertTriangle, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDatasetStore, AlgorithmRecommendation } from "@/store/datasetStore";
@@ -284,6 +284,8 @@ export function AlgorithmRecommendations() {
     analysisResults, dataset, setTips, tips
   } = useDatasetStore();
 
+  const [benchmarkResults, setBenchmarkResults] = useState<any[] | null>(null);
+
   useEffect(() => {
     // If we have analysis results but no recommendations, fetch them
     if (analysisResults && recommendations.length === 0 && !isAnalyzing) {
@@ -385,43 +387,93 @@ export function AlgorithmRecommendations() {
         </div>
       )}
 
-      {/* Navigation & Actions */}
-      <div className="flex justify-between mt-8 items-center">
-        <Button variant="outline" onClick={() => setCurrentStep(2)}>
-          Back to Fingerprint
-        </Button>
 
-        <Button
-          onClick={async () => {
-            setIsAnalyzing(true);
-            try {
-              const response = await fetch("http://localhost:8000/benchmark", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  filename: dataset?.filename || "unknown.csv",
-                  target_col: "target", // TODO: user should select this in Context step. For now hardcode or guess.
-                  recommmendations: recommendations.map(r => ({ algorithm: r.name }))
-                }),
-              });
-              const data = await response.json();
-              alert("Benchmark Complete! Check console for now (UI pending)");
-              console.log(data);
-            } catch (e) { console.error(e); alert("Benchmark Failed"); }
-            setIsAnalyzing(false);
-          }}
-          className="bg-accent text-accent-foreground hover:bg-accent/90"
-        >
-          Run Benchmark
-        </Button>
+      <div className="flex flex-col gap-4 mt-8">
+        <div className="flex justify-between items-center">
+          <Button variant="outline" onClick={() => setCurrentStep(2)}>
+            Back to Fingerprint
+          </Button>
 
-        <Button variant="outline" onClick={() => {
-          const { reset } = useDatasetStore.getState();
-          reset();
-        }}>
-          Start New Analysis
-        </Button>
+          <Button
+            onClick={async () => {
+              setIsAnalyzing(true);
+              try {
+                // Better target column strategy
+                const targetCol = analysisResults?.target_analysis?.name ||
+                  (analysisResults?.columns ? analysisResults.columns[analysisResults.columns.length - 1] : "target");
+
+                const response = await fetch("http://localhost:8000/benchmark", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    filename: dataset?.filename || "unknown.csv",
+                    target_col: targetCol,
+                    recommmendations: recommendations.map(r => ({ algorithm: r.name }))
+                  }),
+                });
+
+                if (!response.ok) {
+                  const err = await response.json();
+                  throw new Error(err.detail || "Benchmark Failed");
+                }
+
+                const data = await response.json();
+                setBenchmarkResults(data.results);
+              } catch (e: any) {
+                console.error(e);
+                alert(`Benchmark Failed: ${e.message}`);
+              }
+              setIsAnalyzing(false);
+            }}
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+            {isAnalyzing ? "Running Benchmark..." : "Run Benchmark"}
+          </Button>
+
+          <Button variant="outline" onClick={() => {
+            const { reset } = useDatasetStore.getState();
+            reset();
+          }}>
+            Start New Analysis
+          </Button>
+        </div>
+
+        {/* Benchmark Results Table */}
+        {benchmarkResults && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="glass-card p-4 overflow-hidden"
+          >
+            <h3 className="font-bold mb-4">Benchmark Results</h3>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="py-2 px-4 text-left font-medium">Algorithm</th>
+                  <th className="py-2 px-4 text-left font-medium">Metric</th>
+                  <th className="py-2 px-4 text-left font-medium">Value</th>
+                  <th className="py-2 px-4 text-left font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {benchmarkResults.map((res: any, i: number) => (
+                  <tr key={i} className="border-t border-border/50">
+                    <td className="py-2 px-4 font-medium">{res.Algorithm}</td>
+                    <td className="py-2 px-4">{res.Metric}</td>
+                    <td className="py-2 px-4 font-bold">{typeof res.Value === 'number' ? res.Value.toFixed(4) : res.Value}</td>
+                    <td className={cn("py-2 px-4", res.Status === "Success" ? "text-green-500" : "text-red-500")}>
+                      {res.Status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </motion.div>
+        )}
       </div>
+
     </motion.div>
   );
 }

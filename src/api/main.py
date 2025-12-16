@@ -33,6 +33,27 @@ os.makedirs(PLOTS_DIR, exist_ok=True)
 # Mount plots directory
 app.mount("/plots", StaticFiles(directory=PLOTS_DIR), name="plots")
 
+
+def read_csv_robust(file_path: str) -> pd.DataFrame:
+    """Reads a CSV file trying multiple encodings."""
+    encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+    df = None
+    error_details = []
+    
+    for encoding in encodings:
+        try:
+            df = pd.read_csv(file_path, encoding=encoding)
+            return df
+        except UnicodeDecodeError:
+            error_details.append(f"{encoding}: failed")
+            continue
+        except Exception as e:
+            error_details.append(f"{encoding}: {str(e)}")
+            continue
+    
+    if df is None:
+         raise HTTPException(status_code=400, detail=f"Could not decode CSV file. Tried encodings: {', '.join(encodings)}. Errors: {'; '.join(error_details)}")
+
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_file(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
@@ -41,24 +62,7 @@ async def analyze_file(file: UploadFile = File(...)):
         
     try:
         if file.filename.endswith('.csv'):
-            # Try reading with different encodings
-            encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
-            df = None
-            error_details = []
-            
-            for encoding in encodings:
-                try:
-                    df = pd.read_csv(file_path, encoding=encoding)
-                    break
-                except UnicodeDecodeError:
-                    error_details.append(f"{encoding}: failed")
-                    continue
-                except Exception as e:
-                     error_details.append(f"{encoding}: {str(e)}")
-                     continue
-            
-            if df is None:
-                 raise HTTPException(status_code=400, detail=f"Could not decode CSV file. Tried encodings: {', '.join(encodings)}. Errors: {'; '.join(error_details)}")
+            df = read_csv_robust(file_path)
         else:
             raise HTTPException(status_code=400, detail="Only CSV files supported for now.")
             
@@ -91,6 +95,8 @@ async def analyze_file(file: UploadFile = File(...)):
         results = json_safe(results, filename=file.filename)
         
         return {"analysis": results, "filename": file.filename, "plots": plot_urls}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -164,37 +170,42 @@ async def run_benchmark(request: BenchmarkRequest):
         raise HTTPException(status_code=404, detail="File session expired or not found.")
         
     try:
-        df = pd.read_csv(file_path)
+        df = read_csv_robust(file_path)
         
-        # Re-construct recommendations in the format expected by runner
-        # Runner expects [{"algorithm": AlgorithmObj}, ...]
-        # We need to lookup AlgorithmObj from name
+        # 1. Validate Target Column
+        target = request.target_col
+        if target not in df.columns:
+            print(f"Warning: Target '{target}' not found in dataset. Falling back to last column.")
+            target = df.columns[-1]
+            
+        # 2. Re-construct recommendations
         from src.algorithms.registry import AlgorithmRegistry
-        
         runner_recs = []
+        all_algos = AlgorithmRegistry.get_all()
+        
         for rec in request.recommmendations:
-            # We assume rec has "algorithm" name string
             name = rec["algorithm"]
-            # We need to find the algo object. Registry isn't fully indexed by name easily exposed,
-            # but we can search or modify registry.
-            # Let's add a helper to registry or just iterate.
-            # For now, simplest is to re-fetch from registry if we had a get_by_name
-            # But wait, registry.get_all returns a list.
-            
-            # Simple hack: Reuse definitions
-            all_algos = AlgorithmRegistry.get_all()
             algo_obj = next((a for a in all_algos if a.name == name), None)
-            
             if algo_obj:
                 runner_recs.append({"algorithm": algo_obj})
-        
+            else:
+                print(f"Warning: Algorithm '{name}' not found in registry.")
+
+        if not runner_recs:
+             raise HTTPException(status_code=400, detail="No valid algorithms found to benchmark (or registry is empty).")
+
+        # 3. Run Benchmark
         runner = AutoMLRunner()
-        results_df = runner.run_benchmark(df, request.target_col, runner_recs)
+        results_df = runner.run_benchmark(df, target, runner_recs)
         
         return {"results": results_df.to_dict(orient="records")}
         
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Benchmark Internal Error: {str(e)}")
 
 @app.post("/competition/plan", response_model=CompetitionPlanResponse)
 async def get_competition_plan(request: CompetitionPlanRequest):

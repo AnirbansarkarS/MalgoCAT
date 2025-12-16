@@ -100,33 +100,40 @@ const Competition = () => {
     }
   };
 
+
   const handleRunBenchmark = async () => {
-    if (!dataset || !plan) return;
+    if (!dataset || !plan || !analysisResults) return;
     setIsBenchmarking(true);
     try {
       // Construct recommendations list from plan
-      // We know plan has baseline.model and advanced.model (names)
       const recs = [
         { algorithm: plan.baseline.model },
         { algorithm: plan.advanced.model }
       ];
+
+      // Better target column strategy: Use analyzed target or last column
+      const targetCol = analysisResults?.target_analysis?.name ||
+        (analysisResults?.columns ? analysisResults.columns[analysisResults.columns.length - 1] : "target");
 
       const response = await fetch("http://localhost:8000/benchmark", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           filename: dataset.filename,
-          target_col: analysisResults.target_analysis?.name || analysisResults.columns[analysisResults.columns.length - 1], // fallback to checking analysis or last col
+          target_col: targetCol,
           recommmendations: recs
         })
       });
 
-      if (!response.ok) throw new Error("Benchmark Failed");
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Benchmark Failed");
+      }
       const data = await response.json();
       setBenchmarkResults(data.results);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Benchmark failed.");
+      alert(`Benchmark failed: ${e.message}`);
     } finally {
       setIsBenchmarking(false);
     }
