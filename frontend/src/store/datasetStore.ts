@@ -40,6 +40,7 @@ interface DatasetState {
   config: AnalysisConfig;
   recommendations: AlgorithmRecommendation[];
   tips: string[];
+  plots: string[];
   currentStep: number;
   isAnalyzing: boolean;
 
@@ -48,6 +49,7 @@ interface DatasetState {
   setDataset: (dataset: DatasetInfo) => void;
   setFingerprint: (fingerprint: DatasetFingerprint) => void;
   setAnalysisResults: (results: any) => void;
+  setPlots: (plots: string[]) => void;
   setConfig: (config: Partial<AnalysisConfig>) => void;
   setRecommendations: (recommendations: AlgorithmRecommendation[]) => void;
   setTips: (tips: string[]) => void;
@@ -66,12 +68,14 @@ export const useDatasetStore = create<DatasetState>((set) => ({
   },
   recommendations: [],
   tips: [],
+  plots: [],
   currentStep: 0,
   isAnalyzing: false,
 
   setDataset: (dataset) => set({ dataset }),
   setFingerprint: (fingerprint) => set({ fingerprint }),
   setAnalysisResults: (results) => set({ analysisResults: results }),
+  setPlots: (plots) => set({ plots }),
   setConfig: (config) => set((state) => ({ config: { ...state.config, ...config } })),
   setRecommendations: (recommendations) => set({ recommendations }),
   setTips: (tips) => set({ tips }),
@@ -84,7 +88,8 @@ export const useDatasetStore = create<DatasetState>((set) => ({
       analysisResults: null,
       config: { goal: "accuracy", computeBudget: "medium" },
       recommendations: [],
-      tips: [], // Reset tips
+      tips: [],
+      plots: [],
       currentStep: 0,
       isAnalyzing: false,
     }),

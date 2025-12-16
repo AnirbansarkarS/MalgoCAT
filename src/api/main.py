@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import shutil
 import os
 import pandas as pd
@@ -9,7 +10,8 @@ from src.engine import HeuristicRanker
 from src.explanations.llm_engine import ExplanationEngine
 from src.competition.advisor import CompetitionAdvisor
 from src.automl.runner import AutoMLRunner
-from src.api.schemas import AnalysisResponse, RecommendationRequest, RecommendationResponse, BenchmarkRequest, BenchmarkResponse
+from src.visualizer import DatasetVisualizer
+from src.api.schemas import AnalysisResponse, RecommendationRequest, RecommendationResponse, BenchmarkRequest, BenchmarkResponse, CompetitionPlanRequest, CompetitionPlanResponse
 import src.algorithms.definitions # Register algorithms
 
 app = FastAPI()
@@ -24,7 +26,12 @@ app.add_middleware(
 )
 
 UPLOAD_DIR = "temp_uploads"
+PLOTS_DIR = "plots"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(PLOTS_DIR, exist_ok=True)
+
+# Mount plots directory
+app.mount("/plots", StaticFiles(directory=PLOTS_DIR), name="plots")
 
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_file(file: UploadFile = File(...)):
@@ -55,13 +62,35 @@ async def analyze_file(file: UploadFile = File(...)):
         else:
             raise HTTPException(status_code=400, detail="Only CSV files supported for now.")
             
+        # Analysis
         analyzer = DatasetAnalyzer(df)
         results = analyzer.analyze()
         
+        # Plotting
+        filename_stem = os.path.splitext(file.filename)[0]
+        file_plots_dir = os.path.join(PLOTS_DIR, filename_stem)
+        
+        # Try to guess target column from analysis if not provided?
+        # For now, initiate without target or guess last column?
+        # Visualizer handles None target gracefully
+        visualizer = DatasetVisualizer(df, target_column=None) 
+        visualizer.generate_all_plots(output_dir=file_plots_dir)
+        
+        # Collect plot URLs
+        plot_urls = []
+        if os.path.exists(file_plots_dir):
+            for plot_file in os.listdir(file_plots_dir):
+                if plot_file.endswith('.png'):
+                    # URL format: http://localhost:8000/plots/filename_stem/plot_file
+                    # We return relative path or full URL. Frontend assumes base URL usually.
+                    # Let's return relative path from server root (actually standard is typically just path)
+                    # Returning full URL is safer if frontend doesn't know base
+                    plot_urls.append(f"/plots/{filename_stem}/{plot_file}")
+
         # Convert NaN to None for JSON serialization and handle numpy types
         results = json_safe(results, filename=file.filename)
         
-        return {"analysis": results, "filename": file.filename}
+        return {"analysis": results, "filename": file.filename, "plots": plot_urls}
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -164,6 +193,15 @@ async def run_benchmark(request: BenchmarkRequest):
         
         return {"results": results_df.to_dict(orient="records")}
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/competition/plan", response_model=CompetitionPlanResponse)
+async def get_competition_plan(request: CompetitionPlanRequest):
+    try:
+        advisor = CompetitionAdvisor()
+        plan = advisor.generate_competition_plan(request.analysis)
+        return plan
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

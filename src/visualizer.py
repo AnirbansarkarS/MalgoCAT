@@ -67,9 +67,42 @@ class DatasetVisualizer:
         
         return self._save_plot(fig, "missing_matrix.png", output_dir)
 
+    def plot_feature_distributions(self, output_dir: Optional[str] = None):
+        """Plots distributions for top numerical and categorical features."""
+        # limit to top 3 numerical by variance
+        numeric_df = self.df.select_dtypes(include=['number'])
+        plot_paths = []
+        
+        if not numeric_df.empty:
+            # Drop columns with 0 variance (constants)
+            numeric_df = numeric_df.loc[:, numeric_df.var() > 0]
+            # Top 3 by variance
+            top_numeric = numeric_df.var().sort_values(ascending=False).head(3).index.tolist()
+            
+            for col in top_numeric:
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.histplot(self.df[col], kde=True, ax=ax)
+                ax.set_title(f"Distribution: {col}")
+                path = self._save_plot(fig, f"dist_{col}.png", output_dir)
+                if path: plot_paths.append(path)
+
+        # limit to top 3 categorical by unique count (but not too high cardinality)
+        cat_df = self.df.select_dtypes(include=['object', 'category'])
+        if not cat_df.empty:
+            for col in cat_df.columns[:3]: # Just take first 3 for now
+                if 1 < self.df[col].nunique() < 20: # Reasonable cardinality
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    sns.countplot(y=self.df[col], ax=ax) # Horizontal for better label fitting
+                    ax.set_title(f"Distribution: {col}")
+                    path = self._save_plot(fig, f"dist_{col}.png", output_dir)
+                    if path: plot_paths.append(path)
+        
+        return plot_paths
+
     def generate_all_plots(self, output_dir: str):
         """Generates and saves all available plots."""
         print(f"Generating plots in {output_dir}...")
         self.plot_target_distribution(output_dir)
         self.plot_correlation_heatmap(output_dir)
         self.plot_missing_matrix(output_dir)
+        self.plot_feature_distributions(output_dir)

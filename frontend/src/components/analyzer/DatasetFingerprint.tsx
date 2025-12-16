@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { 
+import {
   Scale, AlertTriangle, Hash, TrendingUp, Grid3X3,
   CheckCircle2, AlertCircle, Info
 } from "lucide-react";
@@ -14,35 +14,35 @@ const fingerprintCards = [
     icon: Scale,
     getValue: (fp: FingerprintType) => `${(fp.classImbalance.ratio * 100).toFixed(0)}%`,
     getSeverity: (fp: FingerprintType) => fp.classImbalance.severity,
-    getDescription: (fp: FingerprintType) => 
-      fp.classImbalance.severity === "low" 
-        ? "Classes are well balanced" 
+    getDescription: (fp: FingerprintType) =>
+      fp.classImbalance.severity === "low"
+        ? "Classes are well balanced"
         : fp.classImbalance.severity === "medium"
-        ? "Some imbalance detected"
-        : "Significant imbalance - consider SMOTE",
+          ? "Some imbalance detected"
+          : "Significant imbalance - consider SMOTE",
   },
   {
     id: "missingValues",
     label: "Missing Values",
     icon: AlertTriangle,
     getValue: (fp: FingerprintType) => `${(fp.missingValueRatio * 100).toFixed(1)}%`,
-    getSeverity: (fp: FingerprintType) => 
+    getSeverity: (fp: FingerprintType) =>
       fp.missingValueRatio < 0.05 ? "low" : fp.missingValueRatio < 0.2 ? "medium" : "high",
-    getDescription: (fp: FingerprintType) => 
-      fp.missingValueRatio < 0.05 
-        ? "Minimal missing data" 
+    getDescription: (fp: FingerprintType) =>
+      fp.missingValueRatio < 0.05
+        ? "Minimal missing data"
         : fp.missingValueRatio < 0.2
-        ? "Moderate missing data"
-        : "High missing data - imputation needed",
+          ? "Moderate missing data"
+          : "High missing data - imputation needed",
   },
   {
     id: "featureTypes",
     label: "Feature Types",
     icon: Hash,
-    getValue: (fp: FingerprintType) => 
+    getValue: (fp: FingerprintType) =>
       `${fp.featureTypes.numerical}N / ${fp.featureTypes.categorical}C`,
     getSeverity: () => "low" as const,
-    getDescription: (fp: FingerprintType) => 
+    getDescription: (fp: FingerprintType) =>
       `${fp.featureTypes.numerical} numerical, ${fp.featureTypes.categorical} categorical features`,
   },
   {
@@ -50,28 +50,28 @@ const fingerprintCards = [
     label: "Correlation Strength",
     icon: TrendingUp,
     getValue: (fp: FingerprintType) => fp.correlationStrength,
-    getSeverity: (fp: FingerprintType) => 
+    getSeverity: (fp: FingerprintType) =>
       fp.correlationStrength === "weak" ? "high" : fp.correlationStrength === "moderate" ? "medium" : "low",
-    getDescription: (fp: FingerprintType) => 
-      fp.correlationStrength === "weak" 
-        ? "Weak feature correlations" 
+    getDescription: (fp: FingerprintType) =>
+      fp.correlationStrength === "weak"
+        ? "Weak feature correlations"
         : fp.correlationStrength === "moderate"
-        ? "Moderate feature correlations"
-        : "Strong correlations - consider feature selection",
+          ? "Moderate feature correlations"
+          : "Strong correlations - consider feature selection",
   },
   {
     id: "sparseness",
     label: "Sparseness",
     icon: Grid3X3,
     getValue: (fp: FingerprintType) => `${(fp.sparseness * 100).toFixed(0)}%`,
-    getSeverity: (fp: FingerprintType) => 
+    getSeverity: (fp: FingerprintType) =>
       fp.sparseness < 0.1 ? "low" : fp.sparseness < 0.5 ? "medium" : "high",
-    getDescription: (fp: FingerprintType) => 
-      fp.sparseness < 0.1 
-        ? "Dense feature matrix" 
+    getDescription: (fp: FingerprintType) =>
+      fp.sparseness < 0.1
+        ? "Dense feature matrix"
         : fp.sparseness < 0.5
-        ? "Moderately sparse"
-        : "High sparsity - consider sparse algorithms",
+          ? "Moderately sparse"
+          : "High sparsity - consider sparse algorithms",
   },
 ];
 
@@ -88,33 +88,7 @@ const severityColors = {
 };
 
 export function DatasetFingerprintPanel() {
-  const { fingerprint, setFingerprint, setCurrentStep, isAnalyzing, setIsAnalyzing } = useDatasetStore();
-
-  useEffect(() => {
-    if (!fingerprint) {
-      setIsAnalyzing(true);
-      // Simulate analysis
-      const timer = setTimeout(() => {
-        const mockFingerprint: FingerprintType = {
-          classImbalance: {
-            ratio: Math.random() * 0.4 + 0.1,
-            severity: ["low", "medium", "high"][Math.floor(Math.random() * 3)] as "low" | "medium" | "high",
-          },
-          missingValueRatio: Math.random() * 0.15,
-          featureTypes: {
-            numerical: Math.floor(Math.random() * 15) + 5,
-            categorical: Math.floor(Math.random() * 8) + 2,
-            text: Math.floor(Math.random() * 3),
-          },
-          correlationStrength: ["weak", "moderate", "strong"][Math.floor(Math.random() * 3)] as "weak" | "moderate" | "strong",
-          sparseness: Math.random() * 0.3,
-        };
-        setFingerprint(mockFingerprint);
-        setIsAnalyzing(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [fingerprint, setFingerprint, setIsAnalyzing]);
+  const { fingerprint, setCurrentStep, isAnalyzing, plots } = useDatasetStore();
 
   return (
     <motion.div
@@ -142,34 +116,64 @@ export function DatasetFingerprintPanel() {
           ))}
         </div>
       ) : fingerprint ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {fingerprintCards.map((card, index) => {
-            const severity = card.getSeverity(fingerprint);
-            const SeverityIcon = severityIcons[severity];
-            
-            return (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="floating-card"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <card.icon className="w-5 h-5 text-primary" />
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {fingerprintCards.map((card, index) => {
+              const severity = card.getSeverity(fingerprint);
+              const SeverityIcon = severityIcons[severity];
+
+              return (
+                <motion.div
+                  key={card.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="floating-card"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <card.icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <SeverityIcon className={`w-5 h-5 ${severityColors[severity]}`} />
                   </div>
-                  <SeverityIcon className={`w-5 h-5 ${severityColors[severity]}`} />
-                </div>
-                <p className="text-sm text-muted-foreground mb-1">{card.label}</p>
-                <p className="text-xl font-bold mb-2">{card.getValue(fingerprint)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {card.getDescription(fingerprint)}
-                </p>
-              </motion.div>
-            );
-          })}
-        </div>
+                  <p className="text-sm text-muted-foreground mb-1">{card.label}</p>
+                  <p className="text-xl font-bold mb-2">{card.getValue(fingerprint)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {card.getDescription(fingerprint)}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Plots Section */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8"
+          >
+            <h3 className="text-xl font-bold mb-4 text-center">Data Visualizations</h3>
+            {plots && plots.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {plots.map((plotUrl, idx) => (
+                  <div key={idx} className="glass-card p-4">
+                    <img
+                      src={`http://localhost:8000${plotUrl}`}
+                      alt="Data Plot"
+                      className="w-full h-auto rounded-lg"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground p-8 glass-card">
+                <p>No visualization plots available.</p>
+                <p className="text-xs mt-2">Check if backend is running and file was analyzed correctly.</p>
+              </div>
+            )}
+          </motion.div>
+        </>
       ) : null}
 
       {/* Navigation */}

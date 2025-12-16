@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function DatasetUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { dataset, setDataset, setCurrentStep, setFingerprint, setAnalysisResults, setIsAnalyzing } = useDatasetStore();
+  const { dataset, setDataset, setCurrentStep, setFingerprint, setAnalysisResults, setPlots, setIsAnalyzing } = useDatasetStore();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -74,6 +74,7 @@ export function DatasetUpload() {
       });
 
       setAnalysisResults(analysis);
+      if (data.plots) setPlots(data.plots);
 
       setIsAnalyzing(false);
 
@@ -89,7 +90,7 @@ export function DatasetUpload() {
       }
       setIsAnalyzing(false);
     }
-  }, [setDataset, setFingerprint, setAnalysisResults, setIsAnalyzing]);
+  }, [setDataset, setFingerprint, setAnalysisResults, setPlots, setIsAnalyzing]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

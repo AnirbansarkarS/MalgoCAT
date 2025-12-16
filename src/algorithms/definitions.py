@@ -111,5 +111,84 @@ def register_all_algorithms():
         complexity_score=3
     ))
 
+    # --- Advanced Ensembles (for Competition) ---
+    AlgorithmRegistry.register(Algorithm(
+        name="LightGBM Classifier",
+        type="classification",
+        description="A fast, distributed, high-performance gradient boosting framework based on decision tree algorithms.",
+        pros=["Faster training speed and higher efficiency", "Lower memory usage", "Better accuracy"],
+        cons=["Can overfit on small datasets"],
+        complexity_score=6,
+        handle_missing=True,
+        handle_categorical=True
+    ))
+
+    AlgorithmRegistry.register(Algorithm(
+        name="CatBoost Classifier",
+        type="classification",
+        description="A high-performance open source library for gradient boosting on decision trees.",
+        pros=["Great quality without parameter tuning", "Native support for categorical features", "Fast prediction"],
+        cons=["Slow training on default settings"],
+        complexity_score=6,
+        handle_missing=True,
+        handle_categorical=True
+    ))
+
+    AlgorithmRegistry.register(Algorithm(
+        name="XGBoost Regressor",
+        type="regression",
+        description="XGBoost implementation for regression tasks.",
+        pros=["State-of-the-art performance", "Handles missing values"],
+        cons=["Many hyperparameters"],
+        complexity_score=7,
+        handle_missing=True
+    ))
+    
+    AlgorithmRegistry.register(Algorithm(
+        name="LightGBM Regressor",
+        type="regression",
+        description="LightGBM implementation for regression tasks.",
+        pros=["Fast", "Efficient"],
+        cons=["Overfitting on small data"],
+        complexity_score=6,
+        handle_missing=True
+    ))
+
+    AlgorithmRegistry.register(Algorithm(
+        name="Voting Classifier",
+        type="classification",
+        description="Soft Voting/Majority Rule classifier for unfitted estimators.",
+        pros=["Balances out individual model weaknesses"],
+        cons=["Slower to train (trains all sub-models)"],
+        complexity_score=8
+    ))
+
+    AlgorithmRegistry.register(Algorithm(
+        name="Stacked Regressor",
+        type="regression",
+        description="Stack of estimators with a final estimator.",
+        pros=["Usually higher accuracy"],
+        cons=["Computationally expensive"],
+        complexity_score=9
+    ))
+    
+    AlgorithmRegistry.register(Algorithm(
+        name="Ensemble (XGB + CatBoost + LGBM)",
+        type="classification",
+        description="A powerful ensemble of the top gradient boosting libraries.",
+        pros=["Top-tier competition performance"],
+        cons=["Very slow", "Include dependencies"],
+        complexity_score=10
+    ))
+    
+    AlgorithmRegistry.register(Algorithm(
+        name="Stacked Regressors",
+        type="regression",
+        description="Stacked generalization of multiple regressors.",
+        pros=["Top-tier competition performance"],
+        cons=["Very slow"],
+        complexity_score=10
+    ))
+
 # Call this function to initialize registry (usually in __init__)
 register_all_algorithms()
