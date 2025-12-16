@@ -55,3 +55,112 @@ class CompetitionAdvisor:
         tips.append("💡 Tip: Always start with a simple baseline submission to test the end-to-end pipeline before tuning complex models.")
         
         return tips
+
+    def generate_competition_plan(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generates a full competition plan including code snippets.
+        """
+        target_info = analysis.get("target_analysis", {})
+        is_classification = True # Default
+        if target_info:
+             # Heuristic to determine type if not explicitly stated
+             # Assuming likely classification if low cardinality
+             unique_count = target_info.get("n_unique", 0)
+             dtype = target_info.get("dtype", "")
+             if "float" in dtype and unique_count > 50:
+                 is_classification = False
+        
+        # Override if explicitly in analysis
+        if "problem_type" in analysis:
+            is_classification = analysis["problem_type"] == "classification"
+
+        # Baseline Code
+        if is_classification:
+            baseline_model = "LightGBM Classifier"
+            baseline_code = """import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+
+# baseline
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+clf = lgb.LGBMClassifier(n_estimators=100)
+clf.fit(X_train, y_train)
+preds = clf.predict_proba(X_test)[:, 1]
+print("AUC:", roc_auc_score(y_test, preds))"""
+            baseline_score = "0.80+"
+            
+            advanced_model = "Ensemble (XGB + CatBoost + LGBM)"
+            advanced_code = """from sklearn.ensemble import VotingClassifier
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
+
+est = [
+    ('xgb', XGBClassifier(n_estimators=500, learning_rate=0.05)),
+    ('lgb', LGBMClassifier(n_estimators=500, learning_rate=0.05)),
+    ('cat', CatBoostClassifier(iterations=500, verbose=0))
+]
+voting = VotingClassifier(estimators=est, voting='soft')
+voting.fit(X_train, y_train)"""
+            advanced_score = "0.88+"
+
+        else: # Regression
+            baseline_model = "XGBoost Regressor"
+            baseline_code = """from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+reg = XGBRegressor(n_estimators=100)
+reg.fit(X_train, y_train)
+preds = reg.predict(X_test)
+print("RMSE:", mean_squared_error(y_test, preds, squared=False))"""
+            baseline_score = "Top 50%"
+            
+            advanced_model = "Stacked Regressors"
+            advanced_code = """from sklearn.ensemble import StackingRegressor
+from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
+
+estimators = [
+    ('xgb', XGBRegressor(n_estimators=500)),
+    ('lgb', LGBMRegressor(n_estimators=500))
+]
+stack = StackingRegressor(estimators=estimators, final_estimator=LinearRegression())
+stack.fit(X_train, y_train)"""
+            advanced_score = "Top 10%"
+
+        # Feature Engineering Tips
+        fe_tips = []
+        feature_types = analysis.get("feature_types", {})
+        if feature_types.get("date_columns", 0) > 0:
+             fe_tips.append("Extract Aggregations from Date columns (Day, Month, Quarter)")
+        if feature_types.get("text_columns", 0) > 0:
+             fe_tips.append("Use TF-IDF or BERT embeddings for text columns")
+        
+        fe_tips.append("Create interaction features for top correlated variables")
+        fe_tips.append("Try target encoding for high cardinality categoricals")
+        
+        # Hparams
+        hparams = [
+             {"param": "learning_rate", "range": "0.01 - 0.1", "tip": "Lower is better but slower"},
+             {"param": "max_depth", "range": "3 - 10", "tip": "Tune validation depth to avoid overfitting"},
+             {"param": "subsample", "range": "0.6 - 0.9", "tip": "Helps reduce variance"}
+        ]
+
+        return {
+            "baseline": {
+                "model": baseline_model,
+                "expectedScore": baseline_score,
+                "time": "2-5 mins",
+                "code": baseline_code
+            },
+            "advanced": {
+                "model": advanced_model,
+                "expectedScore": advanced_score,
+                "time": "30-60 mins",
+                "code": advanced_code
+            },
+            "featureEngineering": fe_tips,
+            "hyperparameters": hparams
+        }
